@@ -125,9 +125,9 @@ new #[Layout('layouts::guest')] class extends Component
 
                     <button type="submit" style="width:100%;padding:0.875rem;border:none;border-radius:0.75rem;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;font-size:0.875rem;font-weight:600;cursor:pointer;">Loginkan</button>
 
-                    <div style="display:flex;justify-content:space-between;margin-top:18px;">
-                        <a href="{{ route('register') }}" style="font-size:0.85rem;color:rgba(55,65,81,0.80);text-decoration:none;" onmouseover="this.style.color='#111827'" onmouseout="this.style.color='rgba(55,65,81,0.80)'">Register Account</a>
-                        <span style="font-size:0.85rem;color:rgba(55,65,81,0.50);">Forgot Password</span>
+                    <div style="display:flex;justify-content:center;margin-top:18px;">
+                        <a href="{{ route('register') }}" style="font-size:0.85rem;color:rgba(255,255,255,0.80);text-decoration:none;">Register Account</a>
+                    </div>
                     </div>
 
                 </form>
