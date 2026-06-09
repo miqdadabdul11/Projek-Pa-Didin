@@ -1,98 +1,72 @@
 <?php
-
 use Livewire\Component;
 use App\Models\BEMS\Client;
 use Mary\Traits\Toast;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-
+use Livewire\Attributes\On;
 new class extends Component
 {
-    //
     use Toast;
+    
     public $enableClientCreate = false;
+    
     public $code;
     public $name;
     public $expirity;
+    public $admin_email;
+    public $admin_password;
 
-    public function enableClientCreation(){
-        if($this->enableClientCreate == false){
-            $this->enableClientCreate = true;
-        }else{
-            $this->enableClientCreate = false;
-        }
+    #[On('openClientCreate')]
+    public function openForm(){
+        $this->enableClientCreate = true;
     }
 
     public function saveClient(){
         $this->validate([
-            'code' => 'required|string',
+            'code' => 'required|string|unique:bems_clients,code',
             'name' => 'required|string',
             'expirity' => 'required|date',
+            'admin_email' => 'required|email|unique:users,email',
+            'admin_password' => 'required|min:6',
         ]);
-
         $user = User::create([
-            'name' => $this->code,
-            'email' => $this->code."@bems.id",
-            'password' => Hash::make($this->code."1809##")
+            'name' => 'Admin ' . $this->name,
+            'email' => $this->admin_email,
+            'password' => Hash::make($this->admin_password)
         ]);
-
-        Client::create([
+        $client = Client::create([
             'code' => $this->code,
             'name' => $this->name,
-            'user_id' => $user->id,
             'expirity' => $this->expirity,
+            'user_id' => $user->id, 
         ]);
-
-        $this->code = null;
-        $this->name = null;
-        $this->expirity = null;
-        $this->success('Client data has been saved!');
+        $user->update(['client_id' => $client->id]);
+        $user->assignRole('client');
+        $this->reset(['code', 'name', 'expirity', 'admin_email', 'admin_password']);
+        $this->enableClientCreate = false;
+        $this->success('Client profile and Admin account successfully created!');
     }
-
 };
 ?>
-
 <div>
-    @if($enableClientCreate == false)
-        <div class="text-left">
-            <div class="flex flex-wrap -mx-3">
-                <div class="w-full max-w-full px-3 mb-6 sm:w-12/12 sm:flex-none xl:mb-0 xl:w-12/12 text-right">
-                    <x-button wire:click="enableClientCreation" label="Add Client" class="btn-success" />
-                </div>
+    <x-modal wire:model="enableClientCreate" title="Add New Client" class="backdrop-blur-sm" box-class="rounded-2xl max-w-3xl">
+        <x-form wire:submit="saveClient">
+            <div class="text-xs font-bold text-base-content/50 uppercase tracking-widest mb-4 border-b pb-2">1. Institution Profile</div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <x-input wire:model="code" label="Client Code (e.g., FPTI)" icon="o-building-office" required />
+                <x-input wire:model="name" label="Institution Name" icon="o-tag" required />
+                <x-datetime wire:model="expirity" label="Access Expiry Date" icon="o-calendar" required />
             </div>
-        </div>
-    @else
-        <div class="text-left">
-            <div class="flex flex-wrap -mx-3">
-                <div class="w-full max-w-full px-3 mb-6 sm:w-12/12 sm:flex-none xl:mb-0 xl:w-12/12">
-                    <x-card subtitle="Add client" shadow separator>
-                        <div class="text-left">
-                            <div class="flex flex-wrap -mx-3">
-                                <div class="w-full max-w-full px-3 mb-6 sm:w-3/12 sm:flex-none xl:mb-0 xl:w-3/12">
-                                    <x-input wire:model="code" label="Code" />
-                                </div>
-                                <div class="w-full max-w-full px-3 mb-6 sm:w-4/12 sm:flex-none xl:mb-0 xl:w-4/12">
-                                    <x-input wire:model="name" label="Name of client" />
-                                </div>
-                            </div>
-                            <div class="flex flex-wrap -mx-3">
-                                <div class="w-full max-w-full px-3 mb-6 sm:w-4/12 sm:flex-none xl:mb-0 xl:w-4/12">
-                                    <x-datetime label="My date" wire:model="expirity" />
-                                </div>
-                            </div>
-                            <br/>
-                            <div class="flex flex-wrap -mx-3">
-                                <div class="w-full max-w-full px-3 mb-6 sm:w-4/12 sm:flex-none xl:mb-0 xl:w-4/12">
-                                    <x-button wire:click="saveClient" class="btn-success" label="Save"/>
-                                    <x-button wire:click="enableClientCreation" class="btn-warning" label="Cancel"/>
-                                </div>
-                            </div>
-                        </div>
-                    </x-card>
-                </div>
+            <div class="text-xs font-bold text-base-content/50 uppercase tracking-widest mb-4 border-b pb-2">2. Client Admin Account</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <x-input wire:model="admin_email" label="Admin Email" placeholder="admin@institution.com" icon="o-envelope" required />
+                <x-password wire:model="admin_password" label="Password" right icon="o-key" required />
             </div>
-        </div>
-    @endif
-
-    {{-- When there is no desire, all things are at peace. - Laozi --}}
+            <x-slot:actions>
+                <x-button wire:click="$toggle('enableClientCreate')" label="Cancel" class="btn-ghost border-none" />
+                <x-button type="submit" label="Save Client" icon="o-check" class="btn-success border-none shadow-none rounded-xl" spinner="saveClient" />
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
 </div>

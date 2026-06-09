@@ -1,88 +1,34 @@
-# --- STAGE: BASE ---
-FROM php:8.4-fpm AS base
+FROM php:8.4-fpm
 
-ENV NODE_VERSION=22.0.0
-ARG WWWUSER=1000
-ARG WWWGROUP=1000
+# Install system dependencies
+RUN apt-get update && apt-get install -y     libpq-dev libonig-dev libxml2-dev libzip-dev libicu-dev libgd-dev     zip unzip git curl gnupg ca-certificates sudo supervisor     && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_mysql mbstring xml zip intl gd pcntl
+
+COPY .docker/php/php.ini $PHP_INI_DIR/conf.d/custom.ini
+
+# Install Redis
+RUN pecl install redis && docker-php-ext-enable redis
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www
+COPY . .
 
-# 1. Update & Install System Dependencies
-RUN apt-get update && apt-get install -y \
-    gnupg \
-    gosu \
-    curl \
-    ca-certificates \
-    zip \
-    unzip \
-    git \
-    supervisor \
-    sqlite3 \
-    libcap2-bin \
-    libpng-dev \
-    dnsutils \
-    librsvg2-bin \
-    fswatch \
-    ffmpeg \
-    nano \
-    libzip-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN chown -R www-data:www-data /var/www &&     mkdir -p /var/www/storage/framework/views/livewire/classes &&     chmod -R 777 /var/www/storage
 
-# 2. Install PHP Extensions via Helper Script
-# This replaces raw pecl commands and manually installing libraries
-ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
-RUN chmod +x /usr/local/bin/install-php-extensions && \
-    install-php-extensions gd pdo pdo_mysql opcache bcmath sockets pcntl zip redis
-
-# 3. Install Node.js
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g npm
-
-# 4. Setup Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-COPY .docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
-
-# 5. Setup Supervisor
-RUN mkdir -p /var/log/supervisor \
-    && touch /var/log/supervisord.log /var/log/supervisord.err \
-    && chown -R www-data:www-data /var/log/supervisor /var/log/supervisord.* \
-    && chmod -R 777 /var/log/supervisor /var/log/supervisord.*
-
+COPY .docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY .docker/php/supervisor.conf /etc/supervisor/conf.d/supervisor.conf
 COPY .docker/php/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# 6. Setup User
-RUN groupmod -g ${WWWGROUP} www-data && \
-    usermod -u ${WWWUSER} -g ${WWWGROUP} www-data
-
-ENTRYPOINT ["/entrypoint.sh"]
-
-# --- STAGE: DEV ---
-FROM base AS dev
-
-# Install XDebug via the same helper script for reliability
-RUN install-php-extensions xdebug
-
-RUN echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.start_with_request=trigger" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.idekey=PHPSTORM" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
-
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
-
-# --- STAGE: PROD ---
-FROM base AS prod
-
-COPY . /var/www
-COPY .docker/supervisord.conf /etc/supervisord.conf
-
-RUN composer install --no-dev --optimize-autoloader \
-    && chown -R www-data:www-data /var/www
-
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
+RUN composer install --no-dev --optimize-autoloader 2>&1 &&     npm ci 2>&1 &&     npm run build 2>&1
 
 EXPOSE 9000
+ENTRYPOINT [/entrypoint.sh]
+CMD [supervisord, -c, /etc/supervisord.conf]

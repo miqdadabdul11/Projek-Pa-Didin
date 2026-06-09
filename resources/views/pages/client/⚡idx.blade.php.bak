@@ -1,0 +1,288 @@
+<?php
+
+use Livewire\Component;
+use App\Models\BEMS\Building;
+use App\Models\BEMS\Node;
+use App\Models\BEMS\Classroom;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+
+new class extends Component
+{
+    public string $search = '';
+
+    public function with(): array
+    {
+        $client = Auth::user()->client;
+
+        if (!$client) {
+            return ['latestNode' => null, 'buildings' => collect(), 'clientName' => 'Error', 'stats' => [], 'staff' => collect()];
+        }
+
+        $latestNode = Node::whereHas('classroom.building', fn($q) => $q->where('client_id', $client->id))
+            ->whereNotNull('last_status_at')
+            ->with(['classroom.building'])
+            ->orderByDesc('last_status_at')
+            ->first();
+
+        $buildings = Building::where('client_id', $client->id)
+            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->with(['classrooms.nodes'])
+            ->get()
+            ->map(function($building) {
+                $building->total_classrooms = $building->classrooms->count();
+                $allNodes = $building->classrooms->flatMap->nodes;
+                $building->total_nodes = $allNodes->count();
+                $latestNode = $allNodes->whereNotNull('last_status_at')->sortByDesc('last_status_at')->first();
+                $building->latest_node = $latestNode;
+                $building->status = $latestNode ? 'Active' : 'Idle';
+                if ($latestNode) {
+                    $logs = $latestNode->telemetryLogs()->latest()->take(12)->get()->reverse();
+                    $building->graph_data = $logs->map(fn($log) => floatval($log->sensor_reading))->values()->toArray();
+                } else {
+                    $building->graph_data = [];
+                }
+                return $building;
+            });
+
+        $totalRooms = Classroom::whereHas('building', fn($q) => $q->where('client_id', $client->id))->count();
+        $totalNodes = Node::whereHas('classroom.building', fn($q) => $q->where('client_id', $client->id))->count();
+        $totalStaff = User::where('client_id', $client->id)->count();
+
+        $staff = User::where('client_id', $client->id)
+            ->with('roles')
+            ->take(5)
+            ->get();
+
+        $userRoleDistribution = [
+            ['role' => 'Operator',    'count' => User::where('client_id', $client->id)->role('operator')->count(),    'color' => '#6366f1'],
+            ['role' => 'Maintenance', 'count' => User::where('client_id', $client->id)->role('maintenance')->count(), 'color' => '#f97316'],
+            ['role' => 'Viewer',      'count' => User::where('client_id', $client->id)->role('viewer')->count(),      'color' => '#22c55e'],
+        ];
+
+        return [
+            'clientName' => $client->name,
+            'latestNode' => $latestNode,
+            'buildings'  => $buildings,
+            'staff'      => $staff,
+            'userRoleDistribution' => $userRoleDistribution,
+            'stats'      => [
+                'buildings' => $buildings->count(),
+                'rooms'     => $totalRooms,
+                'nodes'     => $totalNodes,
+                'staff'     => $totalStaff,
+            ],
+        ];
+    }
+};
+?>
+
+<div wire:poll.5s>
+    <x-header title="Dashboard {{ $clientName }}" subtitle="Campus Building Management" separator />
+
+    {{-- Summary Stats --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-base-100 rounded-2xl shadow border border-base-200 p-4 text-center">
+            <x-icon name="o-building-office" class="w-6 h-6 mx-auto mb-2 text-primary" />
+            <div class="text-2xl font-bold">{{ $stats['buildings'] }}</div>
+            <div class="text-xs text-base-content/50 uppercase tracking-widest">Buildings</div>
+        </div>
+        <div class="bg-base-100 rounded-2xl shadow border border-base-200 p-4 text-center">
+            <x-icon name="o-squares-plus" class="w-6 h-6 mx-auto mb-2 text-secondary" />
+            <div class="text-2xl font-bold">{{ $stats['rooms'] }}</div>
+            <div class="text-xs text-base-content/50 uppercase tracking-widest">Total Rooms</div>
+        </div>
+        <div class="bg-base-100 rounded-2xl shadow border border-base-200 p-4 text-center">
+            <x-icon name="o-cpu-chip" class="w-6 h-6 mx-auto mb-2 text-accent" />
+            <div class="text-2xl font-bold">{{ $stats['nodes'] }}</div>
+            <div class="text-xs text-base-content/50 uppercase tracking-widest">IoT Nodes</div>
+        </div>
+        <div class="bg-base-100 rounded-2xl shadow border border-base-200 p-4 text-center">
+            <x-icon name="o-users" class="w-6 h-6 mx-auto mb-2 text-info" />
+            <div class="text-2xl font-bold">{{ $stats['staff'] }}</div>
+            <div class="text-xs text-base-content/50 uppercase tracking-widest">Total Staff</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+        {{-- Campus Overview & Building List --}}
+        <div class="lg:col-span-2 bg-base-100 rounded-2xl shadow border border-base-200 p-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold">Campus Overview & Hierarchy</h3>
+                <a href="{{ route('client.buildings') }}" class="text-xs text-primary hover:underline">Manage</a>
+            </div>
+            <div class="mb-3">
+                <input wire:model.live.debounce="search" type="text" placeholder="Search buildings..."
+                    class="input input-sm w-full bg-base-200 border-none rounded-xl" />
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-sm w-full">
+                    <thead>
+                        <tr class="text-xs uppercase text-base-content/50">
+                            <th>ID</th>
+                            <th>Building Name</th>
+                            <th>Rooms</th>
+                            <th>Nodes</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($buildings as $building)
+                            <tr class="border-none hover:bg-base-200/50">
+                                <td class="text-xs text-base-content/40">#{{ $building->id }}</td>
+                                <td class="font-semibold">{{ $building->name }}</td>
+                                <td>{{ $building->total_classrooms }}</td>
+                                <td>{{ $building->total_nodes }}</td>
+                                <td>
+                                    @if($building->status === 'Active')
+                                        <span class="badge badge-success text-white text-xs">Active</span>
+                                    @else
+                                        <span class="badge badge-ghost text-xs">Idle</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="text-center text-base-content/40 py-4">No buildings yet</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- Data Onboarding --}}
+        <div class="bg-base-100 rounded-2xl shadow border border-base-200 p-4">
+            <h3 class="font-bold mb-4">Data Onboarding</h3>
+            <div class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Import Building Data</div>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <a href="{{ route('client.buildings.import') }}" class="bg-base-200 rounded-xl p-4 text-center hover:bg-primary/10 transition cursor-pointer">
+                    <div class="text-2xl mb-1">📊</div>
+                    <div class="text-xs font-bold">CSV</div>
+                </a>
+                <a href="{{ route('client.buildings.import') }}" class="bg-base-200 rounded-xl p-4 text-center hover:bg-success/10 transition cursor-pointer">
+                    <div class="text-2xl mb-1">📗</div>
+                    <div class="text-xs font-bold">XLSX</div>
+                </a>
+            </div>
+            <div class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Live Feed</div>
+            @if($latestNode)
+                <div class="bg-primary/10 rounded-xl p-3">
+                    <div class="text-lg font-bold">{{ $latestNode->sensor_reading }}</div>
+                    <div class="text-xs text-base-content/50 mt-1">
+                        {{ $latestNode->classroom->name ?? '-' }} • {{ $latestNode->last_status_at->diffForHumans() }}
+                    </div>
+                    <div class="text-xs text-base-content/40">Battery: {{ $latestNode->battery }}</div>
+                </div>
+            @else
+                <div class="bg-base-200 rounded-xl p-3 text-xs text-base-content/40 text-center">Waiting for data...</div>
+            @endif
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {{-- User & Permission Management --}}
+        <div class="bg-base-100 rounded-2xl shadow border border-base-200 p-4">
+            <div class="flex items-center justify-between mb-1">
+                <h3 class="font-bold">User & Permission Management</h3>
+                <a href="{{ route('client') }}" class="text-xs text-primary hover:underline">Manage</a>
+            </div>
+            <div class="text-xs text-base-content/40 mb-4">Operators, Maintenance Staff, Viewers</div>
+            <div class="overflow-x-auto">
+                <table class="table table-sm w-full">
+                    <thead>
+                        <tr class="text-xs uppercase text-base-content/50">
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($staff as $member)
+                            <tr class="border-none">
+                                <td>
+                                    <div class="font-semibold text-sm">{{ $member->name }}</div>
+                                    <div class="text-xs text-base-content/40">{{ $member->email }}</div>
+                                </td>
+                                <td>
+                                    @php $role = $member->roles->first()->name ?? 'No Role'; @endphp
+                                    <span class="badge badge-sm
+                                        {{ $role === 'operator' ? 'badge-info' : ($role === 'maintenance' ? 'badge-warning' : 'badge-success') }}
+                                        text-white">{{ ucfirst($role) }}</span>
+                                </td>
+                                <td><span class="text-xs text-success">● Active</span></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="3" class="text-center text-base-content/40 py-4 text-sm">No staff yet</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <a href="{{ route('client') }}" class="btn btn-primary btn-sm w-full mt-4 border-none shadow-none rounded-xl">
+                Register Users & Assign Roles
+            </a>
+        </div>
+
+        {{-- Campus Analytics --}}
+        <div class="bg-base-100 rounded-2xl shadow border border-base-200 p-4">
+            <h3 class="font-bold mb-4">Campus Analytics</h3>
+
+            {{-- User Role Distribution --}}
+            <div class="text-xs text-base-content/50 uppercase tracking-widest mb-3">User Role Distribution</div>
+            <div class="flex items-center gap-4 mb-4">
+                @php
+                    $total = collect($userRoleDistribution)->sum('count') ?: 1;
+                    $offset = 0;
+                    $circumference = 2 * pi() * 30;
+                @endphp
+                <div class="relative w-20 h-20 shrink-0">
+                    <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                        <circle cx="50" cy="50" r="30" fill="none" stroke="#e5e7eb" stroke-width="20"/>
+                        @foreach($userRoleDistribution as $item)
+                            @php
+                                $pct = $item['count'] / $total;
+                                $dash = $pct * $circumference;
+                                $gap = $circumference - $dash;
+                            @endphp
+                            <circle cx="50" cy="50" r="30" fill="none"
+                                stroke="{{ $item['color'] }}" stroke-width="20"
+                                stroke-dasharray="{{ $dash }} {{ $gap }}"
+                                stroke-dashoffset="-{{ $offset }}"
+                            />
+                            @php $offset += $dash; @endphp
+                        @endforeach
+                    </svg>
+                </div>
+                <div class="space-y-1.5">
+                    @foreach($userRoleDistribution as $item)
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ $item['color'] }}"></span>
+                            <span>{{ $item['role'] }}</span>
+                            <span class="font-bold ml-2">{{ $item['count'] }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- Mini Stats --}}
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-base-200 rounded-xl p-3 text-center">
+                    <div class="text-xl font-bold text-primary">{{ $stats['buildings'] }}</div>
+                    <div class="text-xs text-base-content/50">Total Buildings</div>
+                </div>
+                <div class="bg-base-200 rounded-xl p-3 text-center">
+                    <div class="text-xl font-bold text-secondary">{{ $stats['rooms'] }}</div>
+                    <div class="text-xs text-base-content/50">Total Rooms</div>
+                </div>
+                <div class="bg-base-200 rounded-xl p-3 text-center">
+                    <div class="text-xl font-bold text-accent">{{ $stats['nodes'] }}</div>
+                    <div class="text-xs text-base-content/50">IoT Nodes</div>
+                </div>
+                <div class="bg-base-200 rounded-xl p-3 text-center">
+                    <div class="text-xl font-bold text-info">{{ $stats['staff'] }}</div>
+                    <div class="text-xs text-base-content/50">Active Staff</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

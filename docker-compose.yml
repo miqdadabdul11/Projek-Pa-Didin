@@ -3,22 +3,30 @@ services:
         build:
             context: .
             dockerfile: .docker/php/Dockerfile
-            target: dev
             args:
                 WWWUSER: ${WWWUSER}
                 WWWGROUP: ${WWWGROUP}
+        environment:
+            DB_CONNECTION: ${DB_CONNECTION}
+            DB_HOST: mysql
+            DB_PORT: 3306
+            DB_DATABASE: ${DB_DATABASE}
+            DB_USERNAME: ${DB_USERNAME}
+            DB_PASSWORD: ${DB_PASSWORD}
         restart: always
         container_name: st-app
         working_dir: /var/www
         ports:
             - "8000:8000"
+            - "8080:80"
             - "5175:5173"
+            - "9090:9090"
         volumes:
             - .:/var/www
             - .docker/php/supervisord.conf:/etc/supervisord.conf
             - .docker/php/supervisor.conf:/etc/supervisor/conf.d/supervisor.conf
         depends_on:
-            - mysql  # <--- UBAH INI
+            - mysql
             - redis
         networks:
             - WebFPTE
@@ -37,7 +45,6 @@ services:
         networks:
             - WebFPTE
 
-    # --- BAGIAN INI DIUBAH DARI POSTGRES KE MYSQL ---
     mysql:
         image: mysql:8.0
         container_name: st-mysql
@@ -46,16 +53,12 @@ services:
             MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
             MYSQL_ROOT_HOST: "%"
             MYSQL_DATABASE: ${DB_DATABASE}
-            # Jika user di .env bukan root, baris di bawah ini akan membuat user baru
-            # MYSQL_USER: ${DB_USERNAME}
-            # MYSQL_PASSWORD: ${DB_PASSWORD}
         volumes:
             - mysql_data:/var/lib/mysql
         networks:
             - WebFPTE
         ports:
-            - "3311:3306" # Port default internal
-    # -----------------------------------------------
+            - "3311:3306"
 
     redis:
         image: redis:alpine
@@ -67,7 +70,7 @@ services:
             - WebFPTE
 
 volumes:
-    mysql_data: # <--- UBAH DARI pg_data KE mysql_data
+    mysql_data:
     redis_data:
 
 networks:

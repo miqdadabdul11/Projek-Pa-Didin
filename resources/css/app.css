@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -6,20 +7,68 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
 }
 
-
-
-/**
-    The lines above are intact.
-    The lines below were added by maryUI installer.
-*/
-
-/** daisyUI */
 @plugin "daisyui" {
-    themes: light --default, dark --prefersdark;
+    themes: pinky --default, navy;
+}
+
+@plugin "daisyui/theme" {
+    name: "pinky";
+    default: true;
+    color-scheme: light;
+    --color-base-100: oklch(96% 0.02 5);
+    --color-base-200: oklch(92% 0.03 5);
+    --color-base-300: oklch(87% 0.04 5);
+    --color-base-content: oklch(28% 0.04 340);
+    --color-primary: oklch(72% 0.10 5);
+    --color-primary-content: oklch(98% 0 0);
+    --color-secondary: oklch(88% 0.06 155);
+    --color-secondary-content: oklch(30% 0.04 150);
+    --color-accent: oklch(82% 0.07 290);
+    --color-accent-content: oklch(30% 0.04 290);
+    --color-neutral: oklch(75% 0.05 340);
+    --color-neutral-content: oklch(98% 0 0);
+    --color-info: oklch(83% 0.06 220);
+    --color-info-content: oklch(30% 0.04 220);
+    --color-success: oklch(86% 0.07 140);
+    --color-success-content: oklch(30% 0.04 140);
+    --color-warning: oklch(88% 0.08 80);
+    --color-warning-content: oklch(30% 0.04 80);
+    --color-error: oklch(70% 0.12 20);
+    --color-error-content: oklch(98% 0 0);
+    --radius-box: 1rem;
+    --radius-field: 0.75rem;
+    --radius-selector: 0.75rem;
+}
+
+@plugin "daisyui/theme" {
+    name: "navy";
+    color-scheme: dark;
+    --color-base-100: oklch(18% 0.01 240);
+    --color-base-200: oklch(14% 0.01 240);
+    --color-base-300: oklch(10% 0.01 240);
+    --color-base-content: oklch(90% 0.02 350);
+    --color-primary: oklch(72% 0.10 5);
+    --color-primary-content: oklch(18% 0.01 240);
+    --color-secondary: oklch(25% 0.02 240);
+    --color-secondary-content: oklch(90% 0.02 350);
+    --color-accent: oklch(82% 0.07 290);
+    --color-accent-content: oklch(18% 0.01 240);
+    --color-neutral: oklch(22% 0.02 240);
+    --color-neutral-content: oklch(90% 0.02 350);
+    --color-info: oklch(75% 0.06 220);
+    --color-info-content: oklch(18% 0.01 240);
+    --color-success: oklch(78% 0.07 140);
+    --color-success-content: oklch(18% 0.01 240);
+    --color-warning: oklch(80% 0.08 80);
+    --color-warning-content: oklch(18% 0.01 240);
+    --color-error: oklch(72% 0.10 20);
+    --color-error-content: oklch(18% 0.01 240);
+    --radius-box: 1rem;
+    --radius-field: 0.75rem;
+    --radius-selector: 0.75rem;
 }
 
 /* maryUI */
@@ -28,15 +77,96 @@
 /* Theme toggle */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/**
-* Paginator - Traditional style
-* Because Laravel defaults does not match well the design of daisyUI.
-*/
-
 .mary-table-pagination span[aria-current="page"] > span {
     @apply bg-primary text-base-100
 }
-
 .mary-table-pagination button {
     @apply cursor-pointer
+}
+
+/* Custom warning alert */
+.alert-warning {
+    background-color: #FFEE8C !important;
+    border-radius: 1rem !important;
+    border: none !important;
+    color: oklch(30% 0.05 80) !important;
+}
+
+/* Login input text color light mode */
+[data-theme="pinky"] #email-input,
+[data-theme="pinky"] #password-input {
+    color: #AFC9CF !important;
+}
+[data-theme="pinky"] #email-input::placeholder,
+[data-theme="pinky"] #password-input::placeholder {
+    color: #AFC9CF !important;
+}
+
+/* Override Chrome autofill background - light mode */
+[data-theme="pinky"] input:-webkit-autofill,
+[data-theme="pinky"] input:-webkit-autofill:hover,
+[data-theme="pinky"] input:-webkit-autofill:focus,
+[data-theme="pinky"] input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px #ffe8ef inset !important;
+    -webkit-text-fill-color: #AFC9CF !important;
+}
+
+/* Input typed text color - light mode */
+[data-theme="pinky"] #email-input,
+[data-theme="pinky"] #password-input {
+    color: #3a4664 !important;
+    -webkit-text-fill-color: #3a4664 !important;
+}
+
+/* IoT Dashboard title - navy only on light mode */
+[data-theme="pinky"] .login-title {
+    color: #3a4664 !important;
+}
+
+/* Table cell vertical align */
+table td, table th {
+    vertical-align: middle !important;
+}
+
+/* Sidebar collapsed state - rapiin user info area */
+[data-collapsed="true"] .flex.items-center.justify-between.px-2 {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem;
+}
+
+[data-collapsed="true"] .flex.flex-col.min-w-0 {
+    display: none;
+}
+
+[data-collapsed="true"] .flex.items-center.gap-1.ml-2 {
+    margin-left: 0;
+}
+
+/* Sidebar expanded/collapsed state */
+.sidebar-collapsed { display: none; }
+.sidebar-expanded { display: block; }
+
+[data-sidebar-collapsed="true"] .sidebar-collapsed { display: flex; }
+[data-sidebar-collapsed="true"] .sidebar-expanded { display: none; }
+
+/* Sidebar collapsed - sembunyikan expanded, tampilkan collapsed */
+.mary-sidebar-collapsed .sidebar-collapsed { display: flex !important; }
+.mary-sidebar-collapsed .sidebar-expanded { display: none !important; }
+
+/* Collapsed sidebar buttons - match menu item style */
+.display-when-collapsed .btn-circle {
+    border-radius: 0.5rem !important;
+    width: 100% !important;
+    height: 2.5rem !important;
+    border: none !important;
+    box-shadow: none !important;
+    justify-content: center !important;
+    padding: 0 !important;
+}
+
+.display-when-collapsed {
+    width: 100%;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
 }

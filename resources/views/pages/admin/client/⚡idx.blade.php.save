@@ -1,0 +1,87 @@
+<?php
+
+use Livewire\Component;
+use Livewire\WithPagination;
+use App\Models\BEMS\Client;
+use Mary\Traits\Toast;
+use Livewire\Attributes\On;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+
+new class extends Component
+{
+    //
+    use Toast;
+    public $headers=[
+        ['key' => 'id', 'label' => '#', 'class' => 'w-1/12 hidden'],
+        ['key' => 'code', 'label' => 'Code', 'class' => 'w-1/12'],
+        ['key' => 'name','label' => 'Name', 'class' => 'w-4/12'],
+        ['key' => 'user_id', 'label' => 'UserId', 'class' => 'w-2/12'],
+        ['key' => 'expirity', 'label' => 'Expirity', 'class' => 'w-4/12'],
+        ['key' => 'remain', 'label' => 'Remain', 'class' => 'w-4/12'],
+        ['key' => 'action', 'label' => 'Action', 'class' => 'w-5/12'],
+    ];
+
+    #[On('refreshIndexClient')]
+    function render(){
+        $clients = Client::paginate(10);
+        return $this->view(['clients' => $clients]);
+    }
+
+    public function deleteClient($clientId){
+        // 1. Find the client we want to delete
+        $client = Client::find($clientId);
+
+        if ($client) {
+            // 2. Grab the actual User ID attached to this client BEFORE we delete it
+            $userIdToDelete = $client->user_id;
+
+            // 3. Delete the client profile
+            $client->delete();
+
+            // 4. Delete the login credentials using the correct User ID
+            if ($userIdToDelete) {
+                User::find($userIdToDelete)->delete();
+            }
+
+            $this->success('Client profile and login credentials have been deleted');
+        } else {
+            $this->error('Client not found.');
+        }
+    }
+
+    public function loginAs($clientId)
+    {
+
+        $client = Client::find($clientId);
+
+        $user = User::find($client->user_id);
+        Auth::login($user);
+        $this->redirectRoute('client');
+
+    }
+};
+
+?>
+
+<div>
+    <x-card title="Admin | Client Management" shadow separator>
+
+
+        <livewire:pages::admin.client.create/>
+        <livewire:pages::admin.client.edit/>
+        <br/>
+        <hr/>
+        <br/>
+        <div class="w-full max-w-full px-3 mb-6 sm:w-12/12 sm:flex-none xl:mb-0 xl:w-12/12">
+            <x-table :headers="$headers" :rows="$clients" with-pagination>
+                @scope('cell_action', $clients)
+                    <x-button wire:click="$dispatch('enableEditClient', {clientId: {{$clients->id}} })" icon="o-pencil" class="btn-circle btn-sm btn-outline" />
+                    <x-button wire:click="deleteClient({{$clients->id}})" icon="o-trash" class="btn-circle btn-sm btn-outline" />
+                    <x-button wire:click="loginAs({{$clients->id}})" icon="o-user-circle" class="btn-circle btn-sm btn-outline" />
+                @endscope
+            </x-table>
+        </div>
+    </x-card>
+    {{-- It is never too late to be what you might have been. - George Eliot --}}
+</div>User::find($userIdToDelete)?->delete();
