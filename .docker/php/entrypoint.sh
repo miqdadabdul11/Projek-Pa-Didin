@@ -16,6 +16,7 @@ chown -R www-data:www-data /var/www/storage/framework/views/livewire
 echo "Configuring PHP-FPM pool..."
 cat > /usr/local/etc/php-fpm.d/www.conf <<'EOF'
 [www]
+listen = 9000
 pm = dynamic
 pm.max_children = 100
 pm.start_servers = 20
@@ -23,7 +24,8 @@ pm.min_spare_servers = 10
 pm.max_spare_servers = 50
 pm.process_idle_timeout = 30s
 pm.max_requests = 1000
-pm.max_requests_grace_period = 60s
+user = www-data
+group = www-data
 EOF
 
 echo "PHP-FPM pool configured. Starting supervisor..."

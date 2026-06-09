@@ -23,6 +23,7 @@ COPY . .
 RUN chown -R www-data:www-data /var/www &&     mkdir -p /var/www/storage/framework/views/livewire/classes &&     chmod -R 777 /var/www/storage
 
 COPY .docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
+RUN rm -f /usr/local/etc/php-fpm.d/zz-docker.conf && sed -i "/grace_period/d" /usr/local/etc/php-fpm.d/www.conf
 COPY .docker/php/supervisor.conf /etc/supervisor/conf.d/supervisor.conf
 COPY .docker/php/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
@@ -30,5 +31,5 @@ RUN chmod +x /entrypoint.sh
 RUN composer install --no-dev --optimize-autoloader 2>&1 &&     npm ci 2>&1 &&     npm run build 2>&1
 
 EXPOSE 9000
-ENTRYPOINT [/entrypoint.sh]
-CMD [supervisord, -c, /etc/supervisord.conf]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]

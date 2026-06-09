@@ -53,7 +53,7 @@ new #[Layout('layouts::guest')] class extends Component
 <div
 class="min-h-screen w-screen flex items-center justify-center"
 style="
-    background-image: url('{{ asset('images-upi.jpg') }}');
+    background-image: url('{{ asset('images/login-bg.png') }}');
     background-size: cover;
     background-position: center;
     background-color: rgba(0,0,0,0.55);
