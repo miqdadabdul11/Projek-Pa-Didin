@@ -36,6 +36,7 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('/client/users/operator', 'pages::client.users.operator')->name('client.users.operator');
         Route::livewire('/client/users/maintenance', 'pages::client.users.maintenance')->name('client.users.maintenance');
         Route::livewire('/client/users/viewer', 'pages::client.users.viewer')->name('client.users.viewer');
+        Route::livewire('/client/manageroles', 'pages::client.manageroles')->name('client.manageroles');
     });
 
     // OPERATOR ROUTES
@@ -79,4 +80,19 @@ Route::middleware(['auth'])->group(function () {
         })->name('viewer.export.download');
     });
 
+});
+// Stop impersonate
+Route::get('/impersonate/stop', function () {
+    $originalId = session()->pull('impersonated_by');
+    if ($originalId) {
+        Auth::loginUsingId($originalId);
+    }
+    return redirect()->route('client');
+})->middleware('auth')->name('impersonate.stop');
+
+// Shared monitoring routes (operator, maintenance, viewer)
+Route::middleware(['auth', 'role:operator|maintenance|viewer'])->group(function () {
+    Route::livewire('/monitoring/buildings', 'pages::monitoring.buildings')->name('monitoring.buildings');
+    Route::livewire('/monitoring/rooms', 'pages::monitoring.rooms')->name('monitoring.rooms');
+    Route::livewire('/monitoring/nodes', 'pages::monitoring.nodes')->name('monitoring.nodes');
 });

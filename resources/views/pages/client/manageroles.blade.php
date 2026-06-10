@@ -46,6 +46,7 @@ new class extends Component
             'email' => $this->email,
             'password' => Hash::make($this->password),
             'client_id' => $clientId,
+            'is_approved' => true,
         ]);
 
         $newStaff->assignRole($this->role_name);

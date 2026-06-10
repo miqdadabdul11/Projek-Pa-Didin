@@ -9,9 +9,11 @@ chmod -R 777 /var/run/php /var/log
 echo "Fixing permissions..."
 chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 chmod -R 777 /var/www/storage /var/www/bootstrap/cache
+chmod -R 777 /var/www/storage/framework/views/livewire
 mkdir -p /var/www/storage/framework/views/livewire/classes
 chmod -R 777 /var/www/storage/framework/views/livewire
-chown -R www-data:www-data /var/www/storage/framework/views/livewire
+chown -R www-data:www-data /var/www/storage/framework/views
+chmod -R 777 /var/www/storage/framework/views/livewire/classes
 
 echo "Configuring PHP-FPM pool..."
 cat > /usr/local/etc/php-fpm.d/www.conf <<'EOF'
