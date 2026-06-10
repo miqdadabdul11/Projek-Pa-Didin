@@ -197,7 +197,7 @@ new class extends Component
         <div class="bg-[#1a1d27] rounded-2xl border border-gray-800 p-5">
             <div class="flex items-center justify-between mb-1">
                 <h3 class="font-bold text-white text-base">User & Permission Management</h3>
-                <a href="{{ route('client') }}" class="text-xs text-indigo-400 hover:underline">Manage</a>
+                <a href="{{ route('client.manageroles') }}" class="text-xs text-indigo-400 hover:underline">Manage</a>
             </div>
             <div class="text-xs text-gray-500 mb-4">Manage Operators, Manage Maintenance Staff, Manage Viewers</div>
             <table class="w-full text-sm">
@@ -231,7 +231,7 @@ new class extends Component
                     @endforelse
                 </tbody>
             </table>
-            <a href="{{ route('client') }}" class="block w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold text-center py-2.5 rounded-xl transition mt-4">REGISTER USERS & ASSIGN ROLES</a>
+            <a href="{{ route('client.manageroles') }}" class="block w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold text-center py-2.5 rounded-xl transition mt-4">REGISTER USERS & ASSIGN ROLES</a>
         </div>
 
         <div class="bg-[#1a1d27] rounded-2xl border border-gray-800 p-5">

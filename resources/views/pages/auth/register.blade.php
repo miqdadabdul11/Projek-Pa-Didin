@@ -31,7 +31,7 @@ new #[Layout('layouts::guest')] class extends Component
             'name' => $this->name,
             'email' => $this->email,
             'password' => Hash::make($this->password),
-            'is_approved' => false,
+            'is_approved' => true,
         ]);
 
         // Auto-create client profile di tabel bems_clients

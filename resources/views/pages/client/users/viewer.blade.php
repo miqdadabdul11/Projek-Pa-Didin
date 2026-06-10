@@ -1,15 +1,12 @@
 <?php
-
 use Livewire\Component;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Models\BEMS\Client;
 use Mary\Traits\Toast;
 
-new #[Layout('layouts.app')] #[Title('Viewer Management')] class extends Component
+new class extends Component
 {
     use Toast;
 
@@ -17,10 +14,7 @@ new #[Layout('layouts.app')] #[Title('Viewer Management')] class extends Compone
     public string $email = '';
     public string $password = '';
     public string $password_confirmation = '';
-
     public bool $showModal = false;
-    public bool $showDeleteModal = false;
-    public ?int $deleteId = null;
     public ?int $editId = null;
     public string $search = '';
 
@@ -38,17 +32,42 @@ new #[Layout('layouts.app')] #[Title('Viewer Management')] class extends Compone
         return Client::where('user_id', Auth::id())->value('id');
     }
 
-    public function getViewersProperty()
+    public function getUsersProperty()
     {
         $clientId = $this->getClientId();
         return User::where('client_id', $clientId)
             ->whereHas('roles', fn($q) => $q->where('name', 'viewer'))
             ->when($this->search, fn($q) => $q->where(function($q) {
-                $q->where('name', 'like', "%{$this->search}%")
-                  ->orWhere('email', 'like', "%{$this->search}%");
-            }))
-            ->latest()
-            ->get();
+                $q->where('name', 'like', "%{$this->search}%")->orWhere('email', 'like', "%{$this->search}%");
+            }))->with('roles')->latest()->get();
+    }
+
+    public function save(): void
+    {
+        $this->validate();
+        $clientId = $this->getClientId();
+
+        if ($this->editId) {
+            $user = User::findOrFail($this->editId);
+            $user->name = $this->name;
+            $user->email = $this->email;
+            if ($this->password) $user->password = Hash::make($this->password);
+            $user->save();
+            $this->success('Viewer updated.');
+        } else {
+            $user = User::create([
+                'name'        => $this->name,
+                'email'       => $this->email,
+                'password'    => Hash::make($this->password),
+                'client_id'   => $clientId,
+                'is_approved' => true,
+            ]);
+            $user->assignRole('viewer');
+            $this->success('Viewer created.');
+        }
+
+        $this->showModal = false;
+        $this->reset('name', 'email', 'password', 'password_confirmation', 'editId');
     }
 
     public function openCreate(): void
@@ -61,121 +80,68 @@ new #[Layout('layouts.app')] #[Title('Viewer Management')] class extends Compone
     {
         $user = User::findOrFail($id);
         $this->editId = $id;
-        $this->name   = $user->name;
-        $this->email  = $user->email;
+        $this->name = $user->name;
+        $this->email = $user->email;
         $this->reset('password', 'password_confirmation');
         $this->showModal = true;
     }
 
-    public function save(): void
+    public function delete(int $id): void
     {
-        $this->validate();
-        $clientId = $this->getClientId();
-
-        if ($this->editId) {
-            $user = User::findOrFail($this->editId);
-            $user->name  = $this->name;
-            $user->email = $this->email;
-            if ($this->password) {
-                $user->password = Hash::make($this->password);
-            }
-            $user->save();
-            $this->success('Viewer updated.');
-        } else {
-            $user = User::create([
-                'name'      => $this->name,
-                'email'     => $this->email,
-                'password'  => Hash::make($this->password),
-                'client_id' => $clientId,
-            ]);
-            $user->assignRole('viewer');
-            $this->success('Viewer account created.');
-        }
-
-        $this->showModal = false;
-        $this->reset('name', 'email', 'password', 'password_confirmation', 'editId');
-    }
-
-    public function confirmDelete(int $id): void
-    {
-        $this->deleteId = $id;
-        $this->showDeleteModal = true;
-    }
-
-    public function delete(): void
-    {
-        User::findOrFail($this->deleteId)->delete();
-        $this->showDeleteModal = false;
-        $this->deleteId = null;
+        User::findOrFail($id)->delete();
         $this->warning('Viewer deleted.');
-    }
-
-    public function render(): \Illuminate\View\View
-    {
-        return view('pages.client.users.viewer', [
-            'viewers' => $this->viewers,
-        ]);
     }
 };
 ?>
 
 <div>
-    <x-header title="Viewer Management" subtitle="Manage viewer accounts for your faculty" separator>
+    <x-header title="Viewer Management" separator>
         <x-slot:actions>
-            <x-input placeholder="Search..." wire:model.live.debounce="search" icon="o-magnifying-glass" clearable />
-            <x-button label="Add Viewer" icon="o-plus" wire:click="openCreate" class="btn-primary" />
+            <x-input wire:model.live.debounce="search" placeholder="Search..." icon="o-magnifying-glass" class="input-sm" />
+            <x-button label="Add Viewer" icon="o-plus" wire:click="openCreate" class="btn-primary btn-sm" />
         </x-slot:actions>
     </x-header>
 
-    <x-card>
-        <x-table :headers="[
-            ['key' => 'name',       'label' => 'Name'],
-            ['key' => 'email',      'label' => 'Email'],
-            ['key' => 'created_at', 'label' => 'Created'],
-        ]" :rows="$viewers" striped>
-            @scope('cell_created_at', $user)
-                {{ $user->created_at->format('d M Y') }}
-            @endscope
-            @scope('actions', $user)
-                <div class="flex gap-1">
-                    <x-button icon="o-pencil" wire:click="openEdit({{ $user->id }})"
-                        class="btn-ghost btn-xs" tooltip="Edit" />
-                    <x-button icon="o-trash" wire:click="confirmDelete({{ $user->id }})"
-                        class="btn-ghost btn-xs text-error" tooltip="Delete" />
-                </div>
-            @endscope
-        </x-table>
+    <div class="overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs uppercase text-base-content/50">
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($this->users as $user)
+                    <tr class="hover:bg-base-200/50">
+                        <td class="font-semibold">{{ $user->name }}</td>
+                        <td class="text-xs text-base-content/50">{{ $user->email }}</td>
+                        <td><span class="badge badge-success text-white text-xs">Active</span></td>
+                        <td>
+                            <x-button icon="o-pencil" wire:click="openEdit({{ $user->id }})" class="btn-ghost btn-xs" />
+                            <x-button icon="o-trash" wire:click="delete({{ $user->id }})" wire:confirm="Delete this viewer?" class="btn-ghost btn-xs text-error" />
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="4" class="text-center py-4 text-base-content/40">No viewers yet</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 
-        @if($viewers->isEmpty())
-            <div class="text-center py-12 text-base-content/40">
-                <x-icon name="o-eye" class="w-12 h-12 mx-auto mb-2 opacity-30" />
-                <p class="text-sm">No viewers yet. Click "Add Viewer" to create one.</p>
-            </div>
-        @endif
-    </x-card>
-
-    {{-- Create / Edit Modal --}}
-    <x-modal wire:model="showModal" :title="$editId ? 'Edit Viewer' : 'Add Viewer'" separator>
-        <div class="space-y-4">
-            <x-input label="Full Name" wire:model="name" placeholder="e.g. Siti Rahma" icon="o-user" />
-            <x-input label="Email" wire:model="email" type="email" placeholder="viewer@example.com" icon="o-envelope" />
-            <x-input label="{{ $editId ? 'New Password (leave blank to keep)' : 'Password' }}"
-                wire:model="password" type="password" icon="o-lock-closed" />
-            <x-input label="Confirm Password" wire:model="password_confirmation" type="password" icon="o-lock-closed" />
+    <x-modal wire:model="showModal" title="{{ $editId ? 'Edit' : 'Add' }} Viewer">
+        <div class="space-y-3">
+            <x-input wire:model="name" label="Full Name" placeholder="Full name" />
+            <x-input wire:model="email" label="Email" type="email" placeholder="email@example.com" />
+            <x-input wire:model="password" label="{{ $editId ? 'New Password (leave blank)' : 'Password' }}" type="password" placeholder="••••••••" />
+            @if(!$editId)
+                <x-input wire:model="password_confirmation" label="Confirm Password" type="password" placeholder="••••••••" />
+            @endif
         </div>
         <x-slot:actions>
             <x-button label="Cancel" wire:click="$set('showModal', false)" />
-            <x-button label="{{ $editId ? 'Update' : 'Create' }}" wire:click="save"
-                class="btn-primary" wire:loading.attr="disabled" />
-        </x-slot:actions>
-    </x-modal>
-
-    {{-- Delete Confirm Modal --}}
-    <x-modal wire:model="showDeleteModal" title="Delete Viewer" separator>
-        <p class="text-sm text-base-content/70">Are you sure? This action cannot be undone.</p>
-        <x-slot:actions>
-            <x-button label="Cancel" wire:click="$set('showDeleteModal', false)" />
-            <x-button label="Delete" wire:click="delete" class="btn-error" wire:loading.attr="disabled" />
+            <x-button label="{{ $editId ? 'Update' : 'Create' }}" wire:click="save" class="btn-primary" />
         </x-slot:actions>
     </x-modal>
 </div>

@@ -34,6 +34,12 @@
     </x-nav>
 
     <x-main>
+    @if(session('impersonated_by'))
+    <div class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-2 text-white text-sm font-medium shadow-lg" style="background:#7c3aed;">
+        <span>⚡ Login as: <strong>{{ Auth::user()->name }}</strong> ({{ Auth::user()->roles->first()->name ?? 'no role' }})</span>
+        <a href="{{ route('impersonate.stop') }}" class="px-4 py-1 rounded-full text-xs font-bold text-white border border-white/40 hover:bg-white/20 transition">← Back to Client</a>
+    </div>
+    @endif
         <x-slot:sidebar drawer="main-drawer" collapsible class="bg-base-100 lg:bg-inherit">
 
             <x-app-brand class="px-5 pt-4" />
@@ -123,36 +129,43 @@
                                 link="{{ route('client.users.viewer') }}" :active="request()->routeIs('client.users.viewer')" wire:navigate />
                         </x-menu-sub>
 
-                    {{-- ===================== OPERATOR ===================== --}}
-                    @elseif(Auth::user()->hasRole('operator'))
-                        <x-menu-item title="Dashboard" icon="o-wrench"
-                            link="{{ route('operator') }}" :active="request()->routeIs('operator')" wire:navigate />
-                        <x-menu-item title="Node Control" icon="o-cpu-chip"
-                            link="{{ route('operator.nodes') }}" :active="request()->routeIs('operator.nodes')" wire:navigate />
-                        <x-menu-item title="Incoming Requests" icon="o-inbox-arrow-down"
-                            link="{{ route('operator.requests') }}" :active="request()->routeIs('operator.requests')" wire:navigate />
+                    {{-- ===================== OPERATOR / MAINTENANCE / VIEWER ===================== --}}
+                    @elseif(Auth::user()->hasRole('operator') || Auth::user()->hasRole('maintenance') || Auth::user()->hasRole('viewer'))
+                        <x-menu-sub title="Monitoring" icon="o-chart-bar">
+                            <x-menu-item title="Buildings" icon="o-building-office"
+                                link="{{ route('monitoring.buildings') }}" :active="request()->routeIs('monitoring.buildings')" wire:navigate />
+                            <x-menu-item title="Rooms" icon="o-squares-plus"
+                                link="{{ route('monitoring.rooms') }}" :active="request()->routeIs('monitoring.rooms')" wire:navigate />
+                            <x-menu-item title="Nodes" icon="o-cpu-chip"
+                                link="{{ route('monitoring.nodes') }}" :active="request()->routeIs('monitoring.nodes')" wire:navigate />
+                        </x-menu-sub>
+                        <x-menu-separator />
+                        @if(Auth::user()->hasRole('operator'))
+                            <x-menu-item title="Dashboard" icon="o-wrench"
+                                link="{{ route('operator') }}" :active="request()->routeIs('operator')" wire:navigate />
+                            <x-menu-item title="Node Control" icon="o-cpu-chip"
+                                link="{{ route('operator.nodes') }}" :active="request()->routeIs('operator.nodes')" wire:navigate />
+                            <x-menu-item title="Incoming Requests" icon="o-inbox-arrow-down"
+                                link="{{ route('operator.requests') }}" :active="request()->routeIs('operator.requests')" wire:navigate />
+                        @elseif(Auth::user()->hasRole('maintenance'))
+                            <x-menu-item title="Maintenance Log" icon="o-clipboard-document-check"
+                                link="{{ route('maintenance') }}" :active="request()->routeIs('maintenance')" wire:navigate />
+                            <x-menu-item title="Register Node" icon="o-plus-circle"
+                                link="{{ route('maintenance.nodes') }}" :active="request()->routeIs('maintenance.nodes')" wire:navigate />
+                            <x-menu-item title="MQTT Config" icon="o-signal"
+                                link="{{ route('maintenance.mqtt') }}" :active="request()->routeIs('maintenance.mqtt')" wire:navigate />
+                            <x-menu-item title="Export Node Report" icon="o-arrow-down-tray"
+                                link="{{ route('maintenance.export') }}" :active="request()->routeIs('maintenance.export')" wire:navigate />
+                        @elseif(Auth::user()->hasRole('viewer'))
+                            <x-menu-item title="Monitoring Dashboard" icon="o-eye"
+                                link="{{ route('viewer') }}" :active="request()->routeIs('viewer')" wire:navigate />
+                            <x-menu-item title="Request to Operator" icon="o-paper-airplane"
+                                link="{{ route('viewer.requests') }}" :active="request()->routeIs('viewer.requests')" wire:navigate />
+                            <x-menu-item title="Export Node Report" icon="o-arrow-down-tray"
+                                link="{{ route('viewer.export') }}" :active="request()->routeIs('viewer.export')" wire:navigate />
+                        @endif
 
-                    {{-- ===================== MAINTENANCE ===================== --}}
-                    @elseif(Auth::user()->hasRole('maintenance'))
-                        <x-menu-item title="Maintenance Log" icon="o-clipboard-document-check"
-                            link="{{ route('maintenance') }}" :active="request()->routeIs('maintenance')" wire:navigate />
-                        <x-menu-item title="Register Node" icon="o-plus-circle"
-                            link="{{ route('maintenance.nodes') }}" :active="request()->routeIs('maintenance.nodes')" wire:navigate />
-                        <x-menu-item title="MQTT Config" icon="o-signal"
-                            link="{{ route('maintenance.mqtt') }}" :active="request()->routeIs('maintenance.mqtt')" wire:navigate />
-                        <x-menu-item title="Export Node Report" icon="o-arrow-down-tray"
-                            link="{{ route('maintenance.export') }}" :active="request()->routeIs('maintenance.export')" wire:navigate />
-
-                    {{-- ===================== VIEWER ===================== --}}
-                    @elseif(Auth::user()->hasRole('viewer'))
-                        <x-menu-item title="Monitoring Dashboard" icon="o-eye"
-                            link="{{ route('viewer') }}" :active="request()->routeIs('viewer')" wire:navigate />
-                        <x-menu-item title="Request to Operator" icon="o-paper-airplane"
-                            link="{{ route('viewer.requests') }}" :active="request()->routeIs('viewer.requests')" wire:navigate />
-                        <x-menu-item title="Export Node Report" icon="o-arrow-down-tray"
-                            link="{{ route('viewer.export') }}" :active="request()->routeIs('viewer.export')" wire:navigate />
                     @endif
-
                 @endif
             </x-menu>
         </x-slot:sidebar>
